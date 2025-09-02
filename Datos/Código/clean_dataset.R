@@ -1,7 +1,6 @@
 # ================================================================
 # clean_dataset.R
 # Proyecto: Reto 2 — CRONOS-2 Wave 4
-# Ubicación del script: Datos/Código/clean_dataset.R
 # ================================================================
 
 suppressPackageStartupMessages({
@@ -11,16 +10,16 @@ suppressPackageStartupMessages({
   library(stringr)
 })
 
-#Rutas
-raw_csv_path <- "~/Desktop/M8/RETO-2/Datos/Base de datos original/CRON2W4e01.csv"
-out_dir <- "."
 
-#Lectura del archivo y selección de variables
+# Lectura del archivo
+raw_csv_path <- "CRON2W4e01.csv"
 message("Leyendo CSV desde: ", normalizePath(raw_csv_path))
 raw <- readr::read_csv(raw_csv_path, guess_max = 100000, show_col_types = FALSE)
 
+
 #Variables sociodemográficas
 vars_demo  <- c("idno","cntry","gndr","agea","c2weight")
+
 #Ítems de salud mental y bienestar
 vars_items <- paste0("w4q", 47:60)
 vars_need  <- intersect(c(vars_demo, vars_items), names(raw))
@@ -95,8 +94,8 @@ datos <- datos |>
   dplyr::select(-n_pos, -n_dis)
 
 #Salidas
-out_csv <- file.path("~/Desktop/M8/RETO-2/Datos/Base de datos depurada/", "cron2_w4_clean.csv")
-out_rds <- file.path("~/Desktop/M8/RETO-2/Datos/Base de datos depurada/", "cron2_w4_clean.rds")
+out_csv <- file.path("cron2_w4_clean.csv")
+out_rds <- file.path("cron2_w4_clean.rds")
 
 readr::write_csv(datos, out_csv, na = "")
 saveRDS(datos, out_rds)
