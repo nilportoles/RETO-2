@@ -27,15 +27,7 @@ suppressPackageStartupMessages({
 
 
 ```{r}
-
-candidate_paths <- c(
-  "../../Datos/Base de datos depurada/cron2_w4_clean.rds",
-  "../Datos/Base de datos depurada/cron2_w4_clean.rds",
-  "Datos/Base de datos depurada/cron2_w4_clean.rds"
-)
-rds_path <- candidate_paths[file.exists(candidate_paths)][1]
-stopifnot(!is.na(rds_path))
-datos <- readRDS(rds_path)
+datos <- readRDS("cron2_w4_clean.rds")
 
 wmean <- function(x, w, na.rm = TRUE){
   ok <- is.finite(x) & is.finite(w)
