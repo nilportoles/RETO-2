@@ -1,0 +1,214 @@
+---
+title: "CRONOS-2 Wave 4 — Informe técnico"
+author: "Nil Portolés"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: readable
+lang: es
+fontsize: 11pt
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r}
+knitr::opts_chunk$set(
+  echo = FALSE, message = FALSE, warning = FALSE,
+  fig.width = 7, fig.height = 4.5
+)
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(kableExtra)
+})
+```
+
+
+```{r}
+
+candidate_paths <- c(
+  "../../Datos/Base de datos depurada/cron2_w4_clean.rds",
+  "../Datos/Base de datos depurada/cron2_w4_clean.rds",
+  "Datos/Base de datos depurada/cron2_w4_clean.rds"
+)
+rds_path <- candidate_paths[file.exists(candidate_paths)][1]
+stopifnot(!is.na(rds_path))
+datos <- readRDS(rds_path)
+
+wmean <- function(x, w, na.rm = TRUE){
+  ok <- is.finite(x) & is.finite(w)
+  if (!any(ok)) return(NA_real_)
+  x <- x[ok]; w <- w[ok]
+  sw <- sum(w); if (!is.finite(sw) || sw <= 0) return(mean(x, na.rm = TRUE))
+  sum(x * w) / sw
+}
+```
+
+
+```{r}
+glob_pa <- wmean(datos$positive_affect_mean, datos$c2weight)
+glob_di <- wmean(datos$distress_mean,        datos$c2weight)
+```
+
+
+```{r}
+tab_country <- datos %>%
+  group_by(cntry_iso2) %>%
+  summarise(
+    `Afecto positivo` = wmean(positive_affect_mean, c2weight),
+    `Distrés`         = wmean(distress_mean,        c2weight),
+    n = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(across(c(`Afecto positivo`,`Distrés`), ~round(.x, 2))) %>%
+  arrange(desc(`Distrés`))
+
+kable(tab_country, "html", caption = "Resumen por país (medias ponderadas)") %>%
+  kable_styling(full_width = FALSE)
+```
+
+
+```{r}
+plot_df <- datos %>%
+  group_by(cntry_iso2) %>%
+  summarise(media = wmean(distress_mean, c2weight), .groups="drop") %>%
+  arrange(media)
+
+ggplot(plot_df, aes(x = reorder(cntry_iso2, media), y = media)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = "País", y = "Distrés (media ponderada 1–4)")
+
+plot_df <- datos %>%
+  group_by(cntry_iso2) %>%
+  summarise(media = wmean(positive_affect_mean, c2weight), .groups="drop") %>%
+  arrange(media)
+
+ggplot(plot_df, aes(x = reorder(cntry_iso2, media), y = media)) +
+  geom_col() +
+  coord_flip() +
+  labs(x = "País", y = "Afecto positivo (media ponderada 1–4)")
+```
+```{r}
+sex_df <- datos %>%
+  filter(!is.na(gndr_lab)) %>%
+  group_by(gndr_lab) %>%
+  summarise(
+    `Afecto positivo` = wmean(positive_affect_mean, c2weight),
+    `Distrés`         = wmean(distress_mean,        c2weight),
+    .groups = "drop"
+  ) %>%
+  tidyr::pivot_longer(
+    cols = c(`Afecto positivo`, `Distrés`),
+    names_to = "Indicador", values_to = "Media"
+  )
+
+ggplot(sex_df, aes(x = gndr_lab, y = Media, fill = Indicador)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.65) +
+  labs(x = "Sexo", y = "Media ponderada (1–4)") +
+  coord_cartesian(ylim = c(1, 4))
+
+```
+```{r}
+age_df <- datos %>%
+  filter(!is.na(age_band)) %>%
+  group_by(age_band) %>%
+  summarise(
+    `Afecto positivo` = wmean(positive_affect_mean, c2weight),
+    `Distrés`         = wmean(distress_mean,        c2weight),
+    .groups = "drop"
+  ) %>%
+  tidyr::pivot_longer(
+    cols = c(`Afecto positivo`, `Distrés`),
+    names_to = "Indicador", values_to = "Media"
+  )
+
+ggplot(age_df, aes(x = age_band, y = Media, fill = Indicador)) +
+  geom_col(position = position_dodge(width = 0.7), width = 0.65) +
+  labs(x = "Edad", y = "Media ponderada (1–4)") +
+  coord_cartesian(ylim = c(1, 4))
+
+```
+
+
+```{r inline_stats, echo=FALSE}
+# Resumen por país (distrés)
+country_summ <- datos %>%
+  group_by(cntry_iso2) %>%
+  summarise(di = wmean(distress_mean, c2weight), .groups = "drop")
+
+top_country    <- country_summ %>% slice_max(di, n = 1)
+bottom_country <- country_summ %>% slice_min(di, n = 1)
+
+# Diferencias por sexo
+sex_summ <- datos %>%
+  filter(!is.na(gndr_lab)) %>%
+  group_by(gndr_lab) %>%
+  summarise(di = wmean(distress_mean, c2weight), .groups = "drop")
+
+male_di    <- sex_summ$di[sex_summ$gndr_lab == "Male"]
+female_di  <- sex_summ$di[sex_summ$gndr_lab == "Female"]
+gap_sex    <- female_di - male_di   # >0 si mujeres > hombres en distrés
+
+# Diferencias por edad
+age_summ <- datos %>%
+  filter(!is.na(age_band)) %>%
+  group_by(age_band) %>%
+  summarise(di = wmean(distress_mean, c2weight), .groups = "drop") %>%
+  arrange(di)
+
+young_grp <- as.character(age_summ$age_band[1]);   young_val <- age_summ$di[1]
+old_grp   <- as.character(age_summ$age_band[nrow(age_summ)]); old_val <- age_summ$di[nrow(age_summ)]
+
+```
+
+
+
+---
+
+### Interpretación de los resultados
+
+En el ranking por país, **`r top_country$cntry_iso2`** presenta el **mayor distrés** con **`r round(top_country$di, 2)`** puntos, mientras que **`r bottom_country$cntry_iso2`** registra el **menor** con **`r round(bottom_country$di, 2)`**.  
+Por **sexo**, el distrés medio es de **`r round(male_di, 2)`** en **hombres** y **`r round(female_di, 2)`** en **mujeres**, con una **diferencia** de **`r sprintf('%+.2f', gap_sex)`** puntos.  
+Según **edad**, el **menor distrés** aparece en **`r young_grp`** (**`r round(young_val,2)`**), y el **mayor** en **`r old_grp`** (**`r round(old_val,2)`**).
+
+
+
+```{r inline_stats_pa, echo=FALSE}
+# Resumen por país (Afecto positivo)
+country_pa <- datos %>%
+  group_by(cntry_iso2) %>%
+  summarise(pa = wmean(positive_affect_mean, c2weight), .groups = "drop")
+
+top_country_pa    <- country_pa %>% slice_max(pa, n = 1)
+bottom_country_pa <- country_pa %>% slice_min(pa, n = 1)
+
+# Diferencias por sexo (Afecto positivo)
+sex_pa <- datos %>%
+  filter(!is.na(gndr_lab)) %>%
+  group_by(gndr_lab) %>%
+  summarise(pa = wmean(positive_affect_mean, c2weight), .groups = "drop")
+
+male_pa   <- sex_pa$pa[sex_pa$gndr_lab == "Male"]
+female_pa <- sex_pa$pa[sex_pa$gndr_lab == "Female"]
+gap_sex_pa <- female_pa - male_pa  # >0 si mujeres > hombres en afecto positivo
+
+# Diferencias por edad (Afecto positivo)
+age_pa <- datos %>%
+  filter(!is.na(age_band)) %>%
+  group_by(age_band) %>%
+  summarise(pa = wmean(positive_affect_mean, c2weight), .groups = "drop") %>%
+  arrange(pa)
+
+young_grp_pa <- as.character(age_pa$age_band[1]);   young_val_pa <- age_pa$pa[1]
+old_grp_pa   <- as.character(age_pa$age_band[nrow(age_pa)]); old_val_pa <- age_pa$pa[nrow(age_pa)]
+
+```
+
+
+En el ranking por país, **`r top_country_pa$cntry_iso2`** muestra el **mayor afecto positivo** con **`r round(top_country_pa$pa, 2)`** puntos, mientras que **`r bottom_country_pa$cntry_iso2`** registra el **menor** con **`r round(bottom_country_pa$pa, 2)`**.  
+Por **sexo**, el afecto positivo medio es **`r round(male_pa, 2)`** en **hombres** y **`r round(female_pa, 2)`** en **mujeres**, con una **diferencia** de **`r sprintf('%+.2f', gap_sex_pa)`** puntos.  
+Según **edad**, el **menor afecto positivo** aparece en **`r young_grp_pa`** (**`r round(young_val_pa, 2)`**), y el **mayor** en **`r old_grp_pa`** (**`r round(old_val_pa, 2)`**).
+
