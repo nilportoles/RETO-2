@@ -1,6 +1,5 @@
 # ================================================================
 # Dashboard CRONOS-2 Wave 4 — Salud mental y bienestar
-# Lee: Datos/Base de datos depurada/cron2_w4_clean.rds
 # ================================================================
 
 suppressPackageStartupMessages({
@@ -21,7 +20,7 @@ wmean <- function(x, w, na.rm = TRUE) {
   sum(x * w) / sw
 }
 
-datos <- readRDS("~/Desktop/M8/RETO-2/Datos/Base de datos depurada/cron2_w4_clean.rds")
+datos <- readRDS("cron2_w4_clean.rds")
 
 ui <- fluidPage(
   titlePanel("CRONOS-2 Wave 4 — Salud mental y bienestar"),
